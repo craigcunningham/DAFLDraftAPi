@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class DociTeam extends Model
+class Team extends Model
 {
     /**
      * The attributes that are mass assignable.
