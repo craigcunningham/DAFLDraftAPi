@@ -20,12 +20,12 @@ $router->get('Teams', function() {
     return $teams;
 });
 
-$router->get('DociTeams/{id}', function($id) {
+$router->get('Teams/{id}', function($id) {
     $team = App\Models\Team::find($id)::with('owner');
     return $team;
 });
 
-$router->post('DociTeams', function(\Illuminate\Http\Request $request) {
+$router->post('Teams', function(\Illuminate\Http\Request $request) {
     $team = App\Models\Team::create();
     $team->name = $request->json()->get('name');
     $team->owner = $request->json()->get('owner');
