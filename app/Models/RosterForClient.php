@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-class DociRosterForClient
+class RosterForClient
 {
     public $id;
     public $teamId;
@@ -10,4 +10,6 @@ class DociRosterForClient
     public $playerName;
     public $teamName;
     public $position;
+    public $salary;
+    public $contractYear;
 }

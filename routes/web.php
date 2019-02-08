@@ -14,168 +14,72 @@ $router->get('/', function () use ($router) {
     return getmypid();
 });
 
-//Owners Routing
-$router->get('DociOwners', function() {
-    $owners = App\Models\DociOwner::all();
-    return $owners;
-});
-
-$router->get('DociOwners/{id}', function($id) {
-    $owner = App\Models\DociOwner::find($id);
-    return $owner;
-});
-
-$router->post('DociOwners', function(\Illuminate\Http\Request $request) {
-    $owner = App\Models\DociOwner::create();
-    $owner->name = $request->json()->get('name');
-    $owner->email = $request->json()->get('email');
-    $owner->save();
-    return($owner);
-});
-
-$router->put('DociOwners', function(\Illuminate\Http\Request $request) {
-    $owner = App\Models\DociOwner::find($request->json()->get('id'));
-    $owner->name = $request->json()->get('name');
-    $owner->email = $request->json()->get('email');
-    $owner->save();
-    return($owner);
-});
-
-$router->delete('DociOwners/{id}', function($id) {
-    App\Models\DociOwner::destroy($id);
-});
-
 //Teams Routing
-$router->get('DociTeams', function() {
-    $teams = App\Models\DociTeam::all();
+$router->get('Teams', function() {
+    $teams = App\Models\Team::all();
     return $teams;
 });
 
-$router->get('DociTeams/BySeason/{seasonid}', function($seasonid) {
-    $teams = DB::select("SELECT COUNT(*), docilineup.team_id AS id, dociteam.name AS name
-                    FROM docilineup 
-                    JOIN dociteam ON docilineup.team_id = dociteam.id
-                    WHERE docilineup.season_id = :seasonid
-                    GROUP BY id, name", 
-                    ['seasonid' => $seasonid]);
-     return $teams;
-});
-
 $router->get('DociTeams/{id}', function($id) {
-    $team = App\Models\DociTeam::find($id)::with('owner');
-    //Log::info('Get DociTeam owner: ' . $team->owner_id);
+    $team = App\Models\Team::find($id)::with('owner');
     return $team;
 });
 
 $router->post('DociTeams', function(\Illuminate\Http\Request $request) {
-    $team = App\Models\DociTeam::create();
+    $team = App\Models\Team::create();
+    $team->name = $request->json()->get('name');
+    $team->owner = $request->json()->get('owner');
+    $team->save();
+    return($team);
+});
+
+$router->put('Teams', function(\Illuminate\Http\Request $request) {
+    $team = App\Models\Team::find($request->json()->get('id'));
     $team->name = $request->json()->get('name');
     $team->owner = $request->json()->get('owner')->get('id');
     $team->save();
     return($team);
 });
 
-$router->put('DociTeams', function(\Illuminate\Http\Request $request) {
-    $team = App\Models\DociTeam::find($request->json()->get('id'));
-    $team->name = $request->json()->get('name');
-    $team->owner = $request->json()->get('owner')->get('id');
-    $team->save();
-    return($team);
-});
-
-$router->delete('DociTeams/{id}', function($id) {
+$router->delete('Teams/{id}', function($id) {
     //App\Models\DociTeam::destroy($id);
-});
-
-//Seasons Routing
-$router->get('DociSeasons', function() {
-    $seasons = App\Models\DociSeason::all();
-    return $seasons;
-});
-
-$router->get('DociSeasons/GetCurrentSeason', function() {
-    $year = Date("Y");
-    $season = App\Models\DociSeason::where('year', '=', $year)->get();
-    return $season;
-});
-
-$router->get('DociSeasons/{id}', function($id) {
-    $seasons = DB::select("SELECT id, DATE_FORMAT(start_date, '%m/%d/%Y') AS initialDate, 
-                    DATE_FORMAT(supplementalDate, '%m/%d/%Y') AS supplementalDate, name
-                    FROM dociseason 
-                    WHERE id = :id", ["id" => $id]);
-    return $seasons;
-});
-
-$router->post('DociSeasons', function(\Illuminate\Http\Request $request) {
-    $season = App\Models\DociSeason::create();
-    $season->name = $request->json()->get('name');
-    $season->start_date = $request->json()->get('initialDate');
-    $season->supplementalDate = $request->json()->get('supplementalDate');
-    $season->save();
-    return($season);
-});
-
-$router->put('DociSeasons', function(\Illuminate\Http\Request $request) {
-    $season = App\Models\DociSeason::find($request->json()->get('id'));
-    $season->name = $request->json()->get('name');
-    $season->owner = $request->json()->get('owner')->get('id');
-    $season->save();
-    return($season);
-});
-
-$router->delete('DociSeasons/{id}', function($id) {
-    //App\Models\DociSeason::destroy($id);
 });
 
 //Rosters Routing
 $router->get('Rosters', function() {
-    $seasons = App\Models\DociRoster::all();
+    $seasons = App\Models\Roster::all();
     return $seasons;
 });
 
 $router->get('Rosters/{id}', function($id) {
-    $roster = App\Models\DociRoster::find($id);
+    $roster = App\Models\Roster::find($id);
     return $season;
 });
-
-$router->get('Rosters/BySeason/{seasonid}', function($seasonid) {
-    $rosters = DB::select("SELECT docilineup.id, docilineup.team_id, docilineup.player_id,
-                    docilineup.position, docilineup.season_id, docilineup.date_added,
-                    dociteam.name AS team_name, 
-                    CONCAT(daflplayer.firstName, ' ', daflplayer.lastName) AS player_name
-                    FROM docilineup 
-                    JOIN dociteam ON docilineup.team_id = dociteam.id
-                    JOIN daflplayer ON docilineup.player_id = daflplayer.DAFLID
-                    WHERE docilineup.season_id = :seasonid", ['seasonid' => $seasonid]);
-    return $rosters;
-});
-
-$router->get('Rosters/ByTeamAndSeason/{teamid}/{seasonid}', function($teamid, $seasonid) {
-    $roster = DB::table('docilineup')->where([['team_id', $teamid], ['season_id', $seasonid]])->get();
+$router->get('Rosters/ByTeam/{teamid}', function($teamid) {
+    $roster = DB::table('docilineup')->where([['team_id', $teamid]])->get();
     return $roster;
 });
 
 $router->post('Rosters', function(\Illuminate\Http\Request $request) {
-    $roster = App\Models\DociRoster::create();
+    $roster = App\Models\Roster::create();
     $roster->player_id = $request->json()->get('player_id');
     $roster->team_id = $request->json()->get('team_id');
-    $roster->season_id = $request->json()->get('season_id');
     $roster->position = $request->json()->get('position');
+    $roster->salary = $request->json()->get('salary');
+    $roster->contractYear = $request->json()->get('contractYear');
     $roster->save();
-    $rosters = DB::select("SELECT docilineup.id, docilineup.team_id, docilineup.player_id,
-                    docilineup.position, docilineup.season_id, docilineup.date_added,
-                    dociteam.name AS team_name, 
+    $rosters = DB::select("SELECT roster.id, roster.team_id, roster.player_id,
+                    roster.position, team.name AS team_name, 
                     CONCAT(daflplayer.firstName, ' ', daflplayer.lastName) AS player_name
                     FROM docilineup 
-                    JOIN dociteam ON docilineup.team_id = dociteam.id
-                    JOIN daflplayer ON docilineup.player_id = daflplayer.DAFLID
-                    WHERE docilineup.id = :rosterid", ['rosterid' => $roster->id]);
+                    JOIN team ON roster.team_id = team.id
+                    JOIN player ON roster.player_id = player.id
+                    WHERE roster.id = :rosterid", ['rosterid' => $roster->id]);
     return($rosters);
 });
 
 $router->put('Rosters', function(\Illuminate\Http\Request $request) {
-    $roster = App\Models\DociRoster::find($request->json()->get('id'));
+    $roster = App\Models\Roster::find($request->json()->get('id'));
     $roster->save();
     return($roster);
 });
@@ -210,22 +114,22 @@ $router->get('Players/SearchByName/{searchTerm}', function($searchTerm) {
 
     if($firstName == $lastName)
     {
-        $players = DB::select("SELECT DAFLID as id, 
-                    CONCAT(daflplayer.firstName, ' ', daflplayer.lastName) AS name,
-                    CASE daflplayer.pitcher_ind WHEN 1 THEN 'P' WHEN 0 THEN 'H' ELSE 'H' END AS position
-                    FROM  daflplayer
+        $players = DB::select("SELECT id, 
+                    CONCAT(player.firstName, ' ', player.lastName) AS name,
+                    CASE player.pitcher_ind WHEN 1 THEN 'P' WHEN 0 THEN 'H' ELSE 'H' END AS position
+                    FROM  player
                     WHERE firstName like :firstName or lastName like :lastName", ['lastName' => $lastName, 'firstName' => $firstName]);
     }
     else
     {
         $players = DB::select("SELECT DAFLID as id, 
-                    CONCAT(daflplayer.firstName, ' ', daflplayer.lastName) AS name,
-                    CASE daflplayer.pitcher_ind 
+                    CONCAT(player.firstName, ' ', player.lastName) AS name,
+                    CASE player.pitcher_ind 
                     WHEN 1 THEN 'P' 
                     WHEN 0 THEN 'H' 
                     ELSE 'H' 
                     END AS position
-                    FROM  daflplayer
+                    FROM  player
                     WHERE firstName like :firstName and lastName like :lastName", ['lastName' => $lastName, 'firstName' => $firstName]);
     }
     return $players;
