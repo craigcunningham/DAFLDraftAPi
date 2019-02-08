@@ -12,16 +12,6 @@ class DociTeam extends Model
      * @type array
      */
     protected $fillable = [];
-    protected $table = "dociteam";
+    protected $table = "team";
     public $timestamps = false;
-
-    /*
-    public $id;
-    public $name;
-    */
-    
-    public function owner()
-    {
-        return $this->belongsTo('App\Models\DociOwner', 'owner_id');
-    }
 }
