@@ -3,3 +3,7 @@
 Homestead.json
 Homestead.yaml
 .env
+
+.fake
+.ionide
+daflapi.zip

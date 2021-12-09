@@ -10,6 +10,28 @@
 |
 */
 
+/*function SetLineupForTeam($teamid, $playerid) {
+    //$roster = DB::select("SELECT *
+    //FROM roster ON player.player_id = roster.player_id
+    //WHERE roster.team_id = :teamid", ['teamid' => $teamid]);
+
+    $playerPositions = DB::select("SELECT position FROM player_games_played WHERE player_id = :playerid", 
+        ['playerid' => $playerid]);
+
+    $count = $playerPositions->count();
+    if($count == 1) {
+        //Check the roster for a player with this position. If none, return the position. If one, then
+        //check that players other positions. Recursive?
+    } else {
+        foreach($playerPositions as $position) {
+            $playerid = $rosterSpot->player_id;
+       }
+    }
+
+
+    return $position;
+}*/
+
 $router->get('/', function () use ($router) {
     return getmypid();
 });
@@ -46,6 +68,67 @@ $router->delete('Teams/{id}', function($id) {
 });
 
 //Rosters Routing
+
+$router->get('Rosters/RosterCounts', function() {
+    $rostercounts = DB::select("select distinct team_id, team.shortname as teamName, 
+        GetPositionCountByTeam(roster.team_id, 'C') as 'C', 
+        GetPositionCountByTeam(roster.team_id, '1B') as 'First', 
+        GetPositionCountByTeam(roster.team_id, '2B') as 'Second', 
+        GetPositionCountByTeam(roster.team_id, '3B') as 'Third', 
+        GetPositionCountByTeam(roster.team_id, 'SS') as 'SS', 
+        GetPositionCountByTeam(roster.team_id, 'OF') as 'OF', 
+        GetPositionCountByTeam(roster.team_id, 'UT') as 'UT', 
+        GetPositionCountByTeam(roster.team_id, 'P') as 'P', 
+        GetPositionCountByTeam(roster.team_id, 'B') as 'B',
+        GetPlayerCountByTeam(roster.team_id) as 'TotalPlayers',
+        GetTotalMoneySpentByTeam(roster.team_id) as 'TotalMoney',
+        260-GetTotalMoneySpentByTeam(roster.team_id) as 'MoneyLeft',
+        (260-GetTotalMoneySpentByTeam(roster.team_id))-(25-GetPlayerCountByTeam(roster.team_id))+1 as 'MaxBid'
+        from roster
+        join team on roster.team_id = team.id
+        order by team.name;");
+    return $rostercounts;
+});
+
+$router->get('Rosters/RosterHitterProjections', function() {
+    $rosterhitterprojections = DB::select("select proj.system, team.name as teamName, team.id, 
+    sum(proj.hr) as HR, sum(proj.rbi) as RBI, sum(proj.r) as Runs, 
+    sum(pa) as PA, sum(proj.sb) as SB, avg(avg) as AVG
+    from roster
+    join team on roster.team_id = team.id
+    join hitter_projection proj on roster.player_id = proj.player_id
+    where proj.system = 'ATC'
+    group by team.name, team.id
+    order by team.name;");
+    return $rosterhitterprojections;
+});
+
+$router->get('Rosters/RosterPitcherProjections', function() {
+    $rosterpitcherprojections = DB::select("select proj.system, team.name as teamName, 
+    team.id, sum(proj.wins) as Wins, sum(proj.sv) as Saves, 
+    sum(proj.so) as SO, sum(ip) as IP, sum(er) as ER, 
+    sum(er)/(sum(ip)/9) as ERA
+    from roster
+    join team on roster.team_id = team.id
+    join pitcher_projection proj on roster.player_id = proj.player_id
+    where proj.system = 'ATC'
+    group by proj.system, team.name, team.id
+    order by team.name;");
+    return $rosterpitcherprojections;
+});
+
+$router->get('Rosters/GetLastTenAdditions', function() {
+    $rosters = DB::select("select 
+    roster.id, player.name as playerName, team.shortname as teamName, salary
+    from roster
+    join player on roster.player_id = player.player_id
+    join team on roster.team_id = team.id
+    order by time_drafted desc
+    limit 10;");
+
+    return $rosters;
+});
+
 $router->get('Rosters', function() {
     $seasons = App\Models\Roster::all();
     return $seasons;
@@ -53,42 +136,117 @@ $router->get('Rosters', function() {
 
 $router->get('Rosters/{id}', function($id) {
     $roster = App\Models\Roster::find($id);
-    return $season;
+    return $roster;
 });
+
+$router->get('Rosters/ByPlayer/{id}', function($id) {
+    $roster = DB::select("SELECT * FROM roster WHERE player_id = :playerid",
+                           ['playerid' => $id]); // $request->json()->get('player_id')
+    return $roster;
+});
+
 $router->get('Rosters/ByTeam/{teamid}', function($teamid) {
-    $roster = DB::table('docilineup')->where([['team_id', $teamid]])->get();
+    $rosters = DB::select("select distinct team_id, team.shortname as teamName, 
+        GetPlayerAtPositionForTeam(roster.team_id, 'C') as 'C', 
+        GetPlayerAtPositionForTeam(roster.team_id, '1B') as 'First', 
+        GetPlayerAtPositionForTeam(roster.team_id, '2B') as 'Second', 
+        GetPlayerAtPositionForTeam(roster.team_id, '3B') as 'Third', 
+        GetPlayerAtPositionForTeam(roster.team_id, 'SS') as 'SS', 
+        GetPlayerAtPositionForTeam(roster.team_id, 'OF') as 'OF', 
+        GetPlayerAtPositionForTeam(roster.team_id, 'UT') as 'UT', 
+        GetPlayersAtPositionForTeam(roster.team_id, 'P') as 'P', 
+        GetPlayersAtPositionForTeam(roster.team_id, 'B') as 'B',
+        GetPlayerCountByTeam(roster.team_id) as 'TotalPlayers',
+        GetTotalMoneySpentByTeam(roster.team_id) as 'TotalMoney',
+        260-GetTotalMoneySpentByTeam(roster.team_id) as 'MoneyLeft',
+        (260-GetTotalMoneySpentByTeam(roster.team_id))-(25-GetPlayerCountByTeam(roster.team_id))+1 as 'MaxBid'
+        from roster
+        join team on roster.team_id = team.id
+        WHERE roster.team_id = :teamid", ['teamid' => $teamid]);
     return $roster;
 });
 
 $router->post('Rosters', function(\Illuminate\Http\Request $request) {
     $roster = App\Models\Roster::create();
-    $roster->player_id = $request->json()->get('player_id');
+    $roster->player_id = $request->json()->get('player_id');;
     $roster->team_id = $request->json()->get('team_id');
-    $roster->position = $request->json()->get('position');
     $roster->salary = $request->json()->get('salary');
-    $roster->contractYear = $request->json()->get('contractYear');
+    $roster->contract_year = $request->json()->get('contract_year');
+    $roster->position = $request->json()->get('position');
+    $roster->position_locked = 0;
+
     $roster->save();
+    /*
     $rosters = DB::select("SELECT roster.id, roster.team_id, roster.player_id,
-                    roster.position, team.name AS team_name, 
-                    CONCAT(daflplayer.firstName, ' ', daflplayer.lastName) AS player_name
-                    FROM docilineup 
-                    JOIN team ON roster.team_id = team.id
-                    JOIN player ON roster.player_id = player.id
-                    WHERE roster.id = :rosterid", ['rosterid' => $roster->id]);
-    return($rosters);
+        roster.position, team.name AS team_name, 
+        player.name AS player_name,
+        roster.salary, roster.contract_year
+        FROM roster 
+        JOIN team ON roster.team_id = team.id
+        JOIN player ON roster.player_id = player.player_id
+        WHERE roster.id = :roster", ['roster' => $roster->id]);
+    */
+    return($roster);
 });
 
-$router->put('Rosters', function(\Illuminate\Http\Request $request) {
+$router->post('Rosters/MovePlayer', function(\Illuminate\Http\Request $request) {
+    //$roster = App\Models\Roster::find($request->json()->get('id'));
     $roster = App\Models\Roster::find($request->json()->get('id'));
+    //$roster = DB::select("SELECT * FROM roster WHERE player_id = :playerid",
+    //                       ['playerid' => 2413])->first(); // $request->json()->get('player_id')
+    $roster->position = $request->json()->get('position');
+    //$roster[0]->position = $request->json()->get('position');
     $roster->save();
-    return($roster);
+    //$roster = App\Models\Roster::create();
+    //return($roster);
 });
 
 $router->delete('Rosters/{id}', function($id) {
     App\Models\DociRoster::destroy($id);
 });
 
+//Position routes
+$router->get('Positions', function() {
+    $positions = App\Models\Position::all();
+    return $positions;
+});
+
+$router->get('Positions/ByPlayer/{playerid}', function($playerid) {
+    $position = DB::table('player')->where('player_id', $playerid)->pluck('position');
+
+    if($position[0] == "H") {
+        $positions = DB::select("SELECT position.* 
+            FROM player_games_played
+            JOIN position on player_games_played.position = position.position
+            WHERE position.position = 'B' 
+            OR player_games_played.player_id = :playerid
+            UNION 
+            select position.* from position where position='UT'"
+            , ['playerid' => $playerid]);
+    } else {
+        $positions = DB::select("select position.* 
+            from position 
+            where position='P' or position = 'B'");
+    }
+    return $positions;
+});
+
 // Player routes
+$router->get('Players/AtPositionForTeam/{teamid}/{position}', function($teamid, $position) {
+    $playerPosition = DB::select("
+        select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary
+        from roster
+        join player on roster.player_id = player.player_id
+        where roster.team_id = :teamid
+        and roster.position = :position;", ['teamid' => $teamid, 'position' => $position]);
+    return $playerPosition;
+});
+
+$router->get('Players/GetSalary/{playerid}', function($playerid) {
+    $salary = DB::table('roster')->where('player_id', $playerid)->pluck('salary');
+    return $salary;
+});
+
 $router->get('Players/SearchByName/{searchTerm}', function($searchTerm) {
     $playerName = urldecode($searchTerm);
     $lastName = '%';
@@ -108,29 +266,23 @@ $router->get('Players/SearchByName/{searchTerm}', function($searchTerm) {
 }
     else
     {
-        $firstName = strtolower($playerName) . "%";
-        $lastName = strtolower($playerName) . "%";
+        $firstName = "%" . strtolower($playerName) . "%";
+        $lastName = "%" . strtolower($playerName) . "%";
     }
 
     if($firstName == $lastName)
     {
-        $players = DB::select("SELECT id, 
-                    CONCAT(player.firstName, ' ', player.lastName) AS name,
-                    CASE player.pitcher_ind WHEN 1 THEN 'P' WHEN 0 THEN 'H' ELSE 'H' END AS position
+        $players = DB::select("SELECT player_id, name, position, fangraphs_id
                     FROM  player
-                    WHERE firstName like :firstName or lastName like :lastName", ['lastName' => $lastName, 'firstName' => $firstName]);
+                    WHERE  name like :lastName", ['lastName' => $lastName]);
     }
     else
     {
-        $players = DB::select("SELECT DAFLID as id, 
-                    CONCAT(player.firstName, ' ', player.lastName) AS name,
-                    CASE player.pitcher_ind 
-                    WHEN 1 THEN 'P' 
-                    WHEN 0 THEN 'H' 
-                    ELSE 'H' 
-                    END AS position
+        $name = $firstName . " " . $lastName;
+        $players = DB::select("SELECT player_id, name, position, fangraphs_id
                     FROM  player
-                    WHERE firstName like :firstName and lastName like :lastName", ['lastName' => $lastName, 'firstName' => $firstName]);
+                    WHERE  name like :name", ['name' => $name]);
     }
     return $players;
 });
+
