@@ -36,6 +36,32 @@ $router->get('/', function () use ($router) {
     return getmypid();
 });
 
+//Player Routing
+$router->get('Players/HitterRankings', function() {
+    $players = DB::select("SELECT 
+    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible,
+    hproj.adp, hproj.pa, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg
+    FROM player p
+    LEFT OUTER JOIN hitter_projection hproj ON p.fangraphs_id = hproj.fangraphs_id
+    JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
+    LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
+    WHERE hproj.adp < 500
+    ORDER BY hproj.adp ASC");
+    return $players;
+});
+$router->get('Players/PitcherRankings', function() {
+    $players = DB::select("SELECT 
+    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible,
+    pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds
+    FROM player p
+    LEFT OUTER JOIN pitcher_projection pproj ON p.fangraphs_id = pproj.fangraphs_id
+    JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
+    LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
+    WHERE pproj.adp < 500
+    ORDER BY pproj.adp ASC");
+    return $players;
+});
+
 //Teams Routing
 $router->get('Teams', function() {
     $teams = App\Models\Team::all();
@@ -211,6 +237,37 @@ $router->get('Positions', function() {
     return $positions;
 });
 
+$router->get('ProtectionList/{teamid}', function($teamid) {
+    //$protectionList = DB::table('rostersforupload')->where('TeamID', $teamid);
+    $protectionList = DB::select("select ros.*, adp.adp, p.player_id 
+    from adp 
+    join player_id_map map on adp.fangraphs_id = map.idfangraphs
+    join player p on map.mlbid = p.mlbid
+    join rostersforupload ros on ros.cbs_id = map.cbsid
+    where ros.Team_id = :team
+    order by ros.protect desc, adp.adp asc", ['team' => $teamid]);
+    return $protectionList;
+});
+$router->post('ProtectionList/AddPlayer', function(\Illuminate\Http\Request $request) {
+    console_log("Team: " . $request->json()->get('Team_id'));
+    console_log("Player: " . $request->json()->get('player_id'));
+    DB::table('rostersforupload')
+    ->where('team_id', $request->json()->get('Team_id'))
+    ->where('player_id', $request->json()->get('player_id'))
+    ->update(['protect' => 1]);
+});
+
+$router->post('ProtectionList/RemovePlayer', function(\Illuminate\Http\Request $request) {
+    console_log("Team: " . $request->json()->get('Team_id'));
+    console_log("Player: " . $request->json()->get('player_id'));
+    DB::table('rostersforupload')
+    ->where('team_id', $request->json()->get('Team_id'))
+    ->where('player_id', $request->json()->get('player_id'))
+    ->update(['protect' => 0]);
+    // console_log("Hello, Remove Done!");
+});
+
+
 $router->get('Positions/ByPlayer/{playerid}', function($playerid) {
     $position = DB::table('player')->where('player_id', $playerid)->pluck('position');
 
@@ -285,4 +342,8 @@ $router->get('Players/SearchByName/{searchTerm}', function($searchTerm) {
     }
     return $players;
 });
-
+function console_log($message) {
+    $STDERR = fopen("php://stderr", "w");
+              fwrite($STDERR, "\n".$message."\n\n");
+              fclose($STDERR);
+}
