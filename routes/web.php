@@ -239,13 +239,12 @@ $router->get('Positions', function() {
 
 $router->get('ProtectionList/{teamid}', function($teamid) {
     //$protectionList = DB::table('rostersforupload')->where('TeamID', $teamid);
-    $protectionList = DB::select("select ros.*, adp.adp, p.player_id 
-    from adp 
-    join player_id_map map on adp.fangraphs_id = map.idfangraphs
-    join player p on map.mlbid = p.mlbid
+    $protectionList = DB::select("select ros.*, p.adp, p.player_id 
+    from player p 
+    join player_id_map map on map.mlbid = p.mlbid
     join rostersforupload ros on ros.cbs_id = map.cbsid
     where ros.Team_id = :team
-    order by ros.protect desc, adp.adp asc", ['team' => $teamid]);
+    order by ros.protect desc, p.adp asc", ['team' => $teamid]);
     return $protectionList;
 });
 $router->post('ProtectionList/AddPlayer', function(\Illuminate\Http\Request $request) {
