@@ -39,8 +39,9 @@ $router->get('/', function () use ($router) {
 //Player Routing
 $router->get('Players/HitterRankings', function() {
     $players = DB::select("SELECT 
-    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible,
-    hproj.adp, hproj.pa, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg
+    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
+    hproj.adp, hproj.pa, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg, 
+    replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
     FROM player p
     LEFT OUTER JOIN hitter_projection hproj ON p.fangraphs_id = hproj.fangraphs_id
     JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
@@ -51,8 +52,9 @@ $router->get('Players/HitterRankings', function() {
 });
 $router->get('Players/PitcherRankings', function() {
     $players = DB::select("SELECT 
-    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible,
-    pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds
+    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, , map.cbsid cbs_id,
+    pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds, 
+    replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
     FROM player p
     LEFT OUTER JOIN pitcher_projection pproj ON p.fangraphs_id = pproj.fangraphs_id
     JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
@@ -62,6 +64,13 @@ $router->get('Players/PitcherRankings', function() {
     return $players;
 });
 
+//USer Routing
+$router->get('User/{password}', function($password) {
+    $user = DB::select("SELECT team.id team, team.name, team.role permissions FROM team WHERE password = :password",
+    ['password' => $password]);
+    return $user;
+});
+
 //Teams Routing
 $router->get('Teams', function() {
     $teams = App\Models\Team::all();
@@ -69,7 +78,7 @@ $router->get('Teams', function() {
 });
 
 $router->get('Teams/{id}', function($id) {
-    $team = App\Models\Team::find($id)::with('owner');
+    $team = App\Models\Team::find($id);
     return $team;
 });
 
