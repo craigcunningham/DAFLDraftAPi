@@ -46,20 +46,20 @@ $router->get('Players/HitterRankings', function() {
     LEFT OUTER JOIN hitter_projection hproj ON p.fangraphs_id = hproj.fangraphs_id
     JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
     LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
-    WHERE hproj.adp < 500
+    WHERE hproj.adp < 700
     ORDER BY hproj.adp ASC");
     return $players;
 });
 $router->get('Players/PitcherRankings', function() {
     $players = DB::select("SELECT 
-    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, , map.cbsid cbs_id,
+    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
     pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds, 
     replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
     FROM player p
     LEFT OUTER JOIN pitcher_projection pproj ON p.fangraphs_id = pproj.fangraphs_id
     JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
     LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
-    WHERE pproj.adp < 500
+    WHERE pproj.adp < 700
     ORDER BY pproj.adp ASC");
     return $players;
 });
@@ -248,7 +248,9 @@ $router->get('Positions', function() {
 
 $router->get('ProtectionList/{teamid}', function($teamid) {
     //$protectionList = DB::table('rostersforupload')->where('TeamID', $teamid);
-    $protectionList = DB::select("select ros.*, adp.adp, p.player_id 
+    $protectionList = DB::select("select ros.*, adp.adp, p.player_id, map.IDFANGRAPHS as fangraphs_id,
+	replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name,
+    map.CBSID as cbs_id 
     from adp 
     join player_id_map map on adp.fangraphs_id = map.idfangraphs
     join player p on map.mlbid = p.mlbid
@@ -300,9 +302,11 @@ $router->get('Positions/ByPlayer/{playerid}', function($playerid) {
 // Player routes
 $router->get('Players/AtPositionForTeam/{teamid}/{position}', function($teamid, $position) {
     $playerPosition = DB::select("
-        select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary
+        select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary, 
+        map.cbsid cbs_id, replace(trim(TRAILING ' Jr.' FROM player.name), ' ', '-') fangraphs_name
         from roster
         join player on roster.player_id = player.player_id
+        JOIN player_id_map map ON player.fangraphs_id = map.idfangraphs
         where roster.team_id = :teamid
         and roster.position = :position;", ['teamid' => $teamid, 'position' => $position]);
     return $playerPosition;
