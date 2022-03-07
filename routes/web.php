@@ -37,7 +37,7 @@ $router->get('/', function () use ($router) {
 });
 
 //Player Routing
-$router->get('Players/HitterRankings', function() {
+$router->get('Players/HitterRankings/{year}/{system}', function($year, $system) {
     $players = DB::select("SELECT 
     p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
     hproj.adp, hproj.pa, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg, 
@@ -47,10 +47,12 @@ $router->get('Players/HitterRankings', function() {
     JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
     LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
     WHERE hproj.adp < 700
-    ORDER BY hproj.adp ASC");
+    AND hproj.year = :year
+    AND hproj.projection_system = :system
+    ORDER BY hproj.adp ASC", ['year' => $year, 'system' => $system]);
     return $players;
 });
-$router->get('Players/PitcherRankings', function() {
+$router->get('Players/PitcherRankings/{year}/{system}', function($year, $system) {
     $players = DB::select("SELECT 
     p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
     pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds, 
@@ -60,7 +62,9 @@ $router->get('Players/PitcherRankings', function() {
     JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
     LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
     WHERE pproj.adp < 700
-    ORDER BY pproj.adp ASC");
+    AND pproj.year = :year
+    AND pproj.projection_system = :system
+    ORDER BY pproj.adp ASC", ['year' => $year, 'system' => $system]);
     return $players;
 });
 
@@ -125,30 +129,32 @@ $router->get('Rosters/RosterCounts', function() {
     return $rostercounts;
 });
 
-$router->get('Rosters/RosterHitterProjections', function() {
-    $rosterhitterprojections = DB::select("select proj.system, team.name as teamName, team.id, 
+$router->get('Rosters/RosterHitterProjections/{year}/{system}', function($year, $system) {
+    $rosterhitterprojections = DB::select("select proj.projection_system, team.name as teamName, team.id, 
     sum(proj.hr) as HR, sum(proj.rbi) as RBI, sum(proj.r) as Runs, 
     sum(pa) as PA, sum(proj.sb) as SB, avg(avg) as AVG
     from roster
     join team on roster.team_id = team.id
     join hitter_projection proj on roster.player_id = proj.player_id
-    where proj.system = 'ATC'
-    group by team.name, team.id
-    order by team.name;");
+    where proj.projection_system = :system
+    and proj.year = :year
+    group by proj.projection_system, team.name, team.id
+    order by team.name;", ['system' => $system, 'year' => $year]);
     return $rosterhitterprojections;
 });
 
-$router->get('Rosters/RosterPitcherProjections', function() {
-    $rosterpitcherprojections = DB::select("select proj.system, team.name as teamName, 
-    team.id, sum(proj.wins) as Wins, sum(proj.sv) as Saves, 
+$router->get('Rosters/RosterPitcherProjections/{year}/{system}', function($year, $system) {
+    $rosterpitcherprojections = DB::select("select proj.projection_system, team.name as teamName, 
+    team.id, sum(proj.w) as Wins, sum(proj.sv) as Saves, 
     sum(proj.so) as SO, sum(ip) as IP, sum(er) as ER, 
     sum(er)/(sum(ip)/9) as ERA
     from roster
     join team on roster.team_id = team.id
     join pitcher_projection proj on roster.player_id = proj.player_id
-    where proj.system = 'ATC'
-    group by proj.system, team.name, team.id
-    order by team.name;");
+    where proj.projection_system = :system
+    and proj.year = :year
+    group by proj.projection_system, team.name, team.id
+    order by team.name;", ['system' => $system, 'year' => $year]);
     return $rosterpitcherprojections;
 });
 
