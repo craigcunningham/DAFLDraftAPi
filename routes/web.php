@@ -231,13 +231,17 @@ $router->post('Rosters', function(\Illuminate\Http\Request $request) {
 });
 
 $router->post('Rosters/MovePlayer', function(\Illuminate\Http\Request $request) {
+    $id = App\Models\Roster::find($request->json()->get('id'));
+    $position = $request->json()->get('position');
+    DB::table('roster')
+    ->where('team_id', $request->json()->get('Team_id'))
+    ->where('player_id', $request->json()->get('player_id'))
+    ->update(['position' => $position]);
     //$roster = App\Models\Roster::find($request->json()->get('id'));
-    $roster = App\Models\Roster::find($request->json()->get('id'));
     //$roster = DB::select("SELECT * FROM roster WHERE player_id = :playerid",
     //                       ['playerid' => 2413])->first(); // $request->json()->get('player_id')
-    $roster->position = $request->json()->get('position');
     //$roster[0]->position = $request->json()->get('position');
-    $roster->save();
+    //$roster->save();
     //$roster = App\Models\Roster::create();
     //return($roster);
 });
@@ -309,7 +313,8 @@ $router->get('Positions/ByPlayer/{playerid}', function($playerid) {
 $router->get('Players/AtPositionForTeam/{teamid}/{position}', function($teamid, $position) {
     $playerPosition = DB::select("
         select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary, 
-        map.cbsid cbs_id, replace(trim(TRAILING ' Jr.' FROM player.name), ' ', '-') fangraphs_name
+        map.cbsid cbs_id, replace(trim(TRAILING ' Jr.' FROM player.name), ' ', '-') fangraphs_name,
+        player.eligible_positions
         from roster
         join player on roster.player_id = player.player_id
         JOIN player_id_map map ON player.fangraphs_id = map.idfangraphs
