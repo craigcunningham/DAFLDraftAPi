@@ -231,19 +231,9 @@ $router->post('Rosters', function(\Illuminate\Http\Request $request) {
 });
 
 $router->post('Rosters/MovePlayer', function(\Illuminate\Http\Request $request) {
-    $id = App\Models\Roster::find($request->json()->get('id'));
-    $position = $request->json()->get('position');
     DB::table('roster')
-    ->where('team_id', $request->json()->get('Team_id'))
-    ->where('player_id', $request->json()->get('player_id'))
+    ->where('player_id', $request->json()->get('id'))
     ->update(['position' => $position]);
-    //$roster = App\Models\Roster::find($request->json()->get('id'));
-    //$roster = DB::select("SELECT * FROM roster WHERE player_id = :playerid",
-    //                       ['playerid' => 2413])->first(); // $request->json()->get('player_id')
-    //$roster[0]->position = $request->json()->get('position');
-    //$roster->save();
-    //$roster = App\Models\Roster::create();
-    //return($roster);
 });
 
 $router->delete('Rosters/{id}', function($id) {
