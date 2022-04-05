@@ -187,6 +187,7 @@ $router->get('Rosters/ByPlayer/{id}', function($id) {
 });
 
 $router->get('Rosters/ByTeam/{teamid}', function($teamid) {
+    console_log("Get Roster By Team");
     $rosters = DB::select("select distinct team_id, team.shortname as teamName, 
         GetPlayerAtPositionForTeam(roster.team_id, 'C') as 'C', 
         GetPlayerAtPositionForTeam(roster.team_id, '1B') as 'First', 
@@ -233,7 +234,7 @@ $router->post('Rosters', function(\Illuminate\Http\Request $request) {
 $router->post('Rosters/MovePlayer', function(\Illuminate\Http\Request $request) {
     DB::table('roster')
     ->where('player_id', $request->json()->get('id'))
-    ->update(['position' => $position]);
+    ->update(['position' => $request->json()->get('position')]);
 });
 
 $router->delete('Rosters/{id}', function($id) {
@@ -304,7 +305,7 @@ $router->get('Players/AtPositionForTeam/{teamid}/{position}', function($teamid, 
     $playerPosition = DB::select("
         select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary, 
         map.cbsid cbs_id, replace(trim(TRAILING ' Jr.' FROM player.name), ' ', '-') fangraphs_name,
-        player.eligible_positions
+        roster.eligible_positions
         from roster
         join player on roster.player_id = player.player_id
         JOIN player_id_map map ON player.fangraphs_id = map.idfangraphs
