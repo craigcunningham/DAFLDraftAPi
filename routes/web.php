@@ -15,7 +15,7 @@
     //FROM roster ON player.player_id = roster.player_id
     //WHERE roster.team_id = :teamid", ['teamid' => $teamid]);
 
-    $playerPositions = DB::select("SELECT position FROM player_games_played WHERE player_id = :playerid", 
+    $playerPositions = DB::select("SELECT position FROM player_games_played WHERE player_id = :playerid",
         ['playerid' => $playerid]);
 
     $count = $playerPositions->count();
@@ -38,9 +38,9 @@ $router->get('/', function () use ($router) {
 
 //Player Routing
 $router->get('Players/HitterRankings/{year}/{system}', function($year, $system) {
-    $players = DB::select("SELECT 
+    $players = DB::select("SELECT
     p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
-    hproj.adp, hproj.pa, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg, 
+    hproj.adp, hproj.pa, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg,
     replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
     FROM player p
     LEFT OUTER JOIN hitter_projection hproj ON p.fangraphs_id = hproj.fangraphs_id
@@ -53,9 +53,9 @@ $router->get('Players/HitterRankings/{year}/{system}', function($year, $system) 
     return $players;
 });
 $router->get('Players/PitcherRankings/{year}/{system}', function($year, $system) {
-    $players = DB::select("SELECT 
+    $players = DB::select("SELECT
     p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
-    pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds, 
+    pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds,
     replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
     FROM player p
     LEFT OUTER JOIN pitcher_projection pproj ON p.fangraphs_id = pproj.fangraphs_id
@@ -109,15 +109,15 @@ $router->delete('Teams/{id}', function($id) {
 //Rosters Routing
 
 $router->get('Rosters/RosterCounts', function() {
-    $rostercounts = DB::select("select distinct team_id, team.shortname as teamName, 
-        GetPositionCountByTeam(roster.team_id, 'C') as 'C', 
-        GetPositionCountByTeam(roster.team_id, '1B') as 'First', 
-        GetPositionCountByTeam(roster.team_id, '2B') as 'Second', 
-        GetPositionCountByTeam(roster.team_id, '3B') as 'Third', 
-        GetPositionCountByTeam(roster.team_id, 'SS') as 'SS', 
-        GetPositionCountByTeam(roster.team_id, 'OF') as 'OF', 
-        GetPositionCountByTeam(roster.team_id, 'UT') as 'UT', 
-        GetPositionCountByTeam(roster.team_id, 'P') as 'P', 
+    $rostercounts = DB::select("select distinct team_id, team.shortname as teamName,
+        GetPositionCountByTeam(roster.team_id, 'C') as 'C',
+        GetPositionCountByTeam(roster.team_id, '1B') as 'First',
+        GetPositionCountByTeam(roster.team_id, '2B') as 'Second',
+        GetPositionCountByTeam(roster.team_id, '3B') as 'Third',
+        GetPositionCountByTeam(roster.team_id, 'SS') as 'SS',
+        GetPositionCountByTeam(roster.team_id, 'OF') as 'OF',
+        GetPositionCountByTeam(roster.team_id, 'UT') as 'UT',
+        GetPositionCountByTeam(roster.team_id, 'P') as 'P',
         GetPositionCountByTeam(roster.team_id, 'B') as 'B',
         GetPlayerCountByTeam(roster.team_id) as 'TotalPlayers',
         GetTotalMoneySpentByTeam(roster.team_id) as 'TotalMoney',
@@ -125,45 +125,49 @@ $router->get('Rosters/RosterCounts', function() {
         (260-GetTotalMoneySpentByTeam(roster.team_id))-(25-GetPlayerCountByTeam(roster.team_id))+1 as 'MaxBid'
         from roster
         join team on roster.team_id = team.id
-        order by team.name;");
+        where roster.active = 1
+        order by teamName;");
     return $rostercounts;
 });
 
 $router->get('Rosters/RosterHitterProjections/{year}/{system}', function($year, $system) {
-    $rosterhitterprojections = DB::select("select proj.projection_system, team.name as teamName, team.id, 
-    sum(proj.hr) as HR, sum(proj.rbi) as RBI, sum(proj.r) as Runs, 
+    $rosterhitterprojections = DB::select("select proj.projection_system, team.name as teamName, team.id,
+    sum(proj.hr) as HR, sum(proj.rbi) as RBI, sum(proj.r) as Runs,
     sum(pa) as PA, sum(proj.sb) as SB, avg(avg) as AVG
     from roster
     join team on roster.team_id = team.id
     join hitter_projection proj on roster.player_id = proj.player_id
     where proj.projection_system = :system
-    and proj.year = :year
+    and proj.year = :
+    and roster.active = 1
     group by proj.projection_system, team.name, team.id
     order by team.name;", ['system' => $system, 'year' => $year]);
     return $rosterhitterprojections;
 });
 
 $router->get('Rosters/RosterPitcherProjections/{year}/{system}', function($year, $system) {
-    $rosterpitcherprojections = DB::select("select proj.projection_system, team.name as teamName, 
-    team.id, sum(proj.w) as Wins, sum(proj.sv) as Saves, 
-    sum(proj.so) as SO, sum(ip) as IP, sum(er) as ER, 
+    $rosterpitcherprojections = DB::select("select proj.projection_system, team.name as teamName,
+    team.id, sum(proj.w) as Wins, sum(proj.sv) as Saves,
+    sum(proj.so) as SO, sum(ip) as IP, sum(er) as ER,
     sum(er)/(sum(ip)/9) as ERA
     from roster
     join team on roster.team_id = team.id
     join pitcher_projection proj on roster.player_id = proj.player_id
     where proj.projection_system = :system
     and proj.year = :year
+    and roster.active = 1
     group by proj.projection_system, team.name, team.id
     order by team.name;", ['system' => $system, 'year' => $year]);
     return $rosterpitcherprojections;
 });
 
 $router->get('Rosters/GetLastTenAdditions', function() {
-    $rosters = DB::select("select 
+    $rosters = DB::select("select
     roster.id, player.name as playerName, team.shortname as teamName, salary
     from roster
     join player on roster.player_id = player.player_id
     join team on roster.team_id = team.id
+    where roster.active = 1
     order by time_drafted desc
     limit 10;");
 
@@ -181,22 +185,22 @@ $router->get('Rosters/{id}', function($id) {
 });
 
 $router->get('Rosters/ByPlayer/{id}', function($id) {
-    $roster = DB::select("SELECT * FROM roster WHERE player_id = :playerid",
+    $roster = DB::select("SELECT * FROM roster WHERE player_id = :playerid and active = 1",
                            ['playerid' => $id]); // $request->json()->get('player_id')
     return $roster;
 });
 
 $router->get('Rosters/ByTeam/{teamid}', function($teamid) {
     console_log("Get Roster By Team");
-    $rosters = DB::select("select distinct team_id, team.shortname as teamName, 
-        GetPlayerAtPositionForTeam(roster.team_id, 'C') as 'C', 
-        GetPlayerAtPositionForTeam(roster.team_id, '1B') as 'First', 
-        GetPlayerAtPositionForTeam(roster.team_id, '2B') as 'Second', 
-        GetPlayerAtPositionForTeam(roster.team_id, '3B') as 'Third', 
-        GetPlayerAtPositionForTeam(roster.team_id, 'SS') as 'SS', 
-        GetPlayerAtPositionForTeam(roster.team_id, 'OF') as 'OF', 
-        GetPlayerAtPositionForTeam(roster.team_id, 'UT') as 'UT', 
-        GetPlayersAtPositionForTeam(roster.team_id, 'P') as 'P', 
+    $rosters = DB::select("select distinct team_id, team.shortname as teamName,
+        GetPlayerAtPositionForTeam(roster.team_id, 'C') as 'C',
+        GetPlayerAtPositionForTeam(roster.team_id, '1B') as 'First',
+        GetPlayerAtPositionForTeam(roster.team_id, '2B') as 'Second',
+        GetPlayerAtPositionForTeam(roster.team_id, '3B') as 'Third',
+        GetPlayerAtPositionForTeam(roster.team_id, 'SS') as 'SS',
+        GetPlayerAtPositionForTeam(roster.team_id, 'OF') as 'OF',
+        GetPlayerAtPositionForTeam(roster.team_id, 'UT') as 'UT',
+        GetPlayersAtPositionForTeam(roster.team_id, 'P') as 'P',
         GetPlayersAtPositionForTeam(roster.team_id, 'B') as 'B',
         GetPlayerCountByTeam(roster.team_id) as 'TotalPlayers',
         GetTotalMoneySpentByTeam(roster.team_id) as 'TotalMoney',
@@ -204,31 +208,49 @@ $router->get('Rosters/ByTeam/{teamid}', function($teamid) {
         (260-GetTotalMoneySpentByTeam(roster.team_id))-(25-GetPlayerCountByTeam(roster.team_id))+1 as 'MaxBid'
         from roster
         join team on roster.team_id = team.id
-        WHERE roster.team_id = :teamid", ['teamid' => $teamid]);
-    return $roster;
+        where roster.active = 1
+        and roster.team_id = :teamid", ['teamid' => $teamid]);
+    return $rosters;
 });
 
 $router->post('Rosters', function(\Illuminate\Http\Request $request) {
+    $player_id = $request->json()->get('player_id');
+    DB::table('roster')
+    ->where('player_id', $player_id)
+    ->update(['active' => 0]);
+
+    $data=array('player_id'=>$player_id,
+    "team_id"=>$request->json()->get('team_id'),
+    "salary"=>$request->json()->get('salary'),
+    "contract_year"=>$request->json()->get('contract_year'),
+    "position"=>$request->json()->get('position'),
+    "active"=>1,
+    "position_locked"=>0);
+    DB::table('roster')->insert($data);
+    $roster = DB::select("SELECT * FROM roster WHERE player_id = :playerid and active = 1",
+                           ['playerid' => $player_id]);
+    return($roster);
+
+    /*
     $roster = App\Models\Roster::create();
     $roster->player_id = $request->json()->get('player_id');;
     $roster->team_id = $request->json()->get('team_id');
     $roster->salary = $request->json()->get('salary');
     $roster->contract_year = $request->json()->get('contract_year');
     $roster->position = $request->json()->get('position');
+    $roster->active = 1;
     $roster->position_locked = 0;
-
     $roster->save();
-    /*
     $rosters = DB::select("SELECT roster.id, roster.team_id, roster.player_id,
-        roster.position, team.name AS team_name, 
+        roster.position, team.name AS team_name,
         player.name AS player_name,
         roster.salary, roster.contract_year
-        FROM roster 
+        FROM roster
         JOIN team ON roster.team_id = team.id
         JOIN player ON roster.player_id = player.player_id
         WHERE roster.id = :roster", ['roster' => $roster->id]);
-    */
     return($roster);
+    */
 });
 
 $router->post('Rosters/MovePlayer', function(\Illuminate\Http\Request $request) {
@@ -251,10 +273,10 @@ $router->get('ProtectionList/{teamid}', function($teamid) {
     //$protectionList = DB::table('rostersforupload')->where('TeamID', $teamid);
     $protectionList = DB::select("select ros.*, adp.adp, p.player_id, map.IDFANGRAPHS as fangraphs_id,
 	replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name,
-    map.CBSID as cbs_id 
-    from adp 
+    map.CBSID as cbs_id
+    from adp
     join player_id_map map on adp.fangraphs_id = map.idfangraphs
-    join player p on map.mlbid = p.mlbid
+    join player p on map.idfangraphs = p.fangraphs_id
     join rostersforupload ros on ros.cbs_id = map.cbsid
     where ros.Team_id = :team
     order by ros.protect desc, adp.adp asc", ['team' => $teamid]);
@@ -284,17 +306,17 @@ $router->get('Positions/ByPlayer/{playerid}', function($playerid) {
     $position = DB::table('player')->where('player_id', $playerid)->pluck('position');
 
     if($position[0] == "H") {
-        $positions = DB::select("SELECT position.* 
+        $positions = DB::select("SELECT position.*
             FROM player_games_played
             JOIN position on player_games_played.position = position.position
-            WHERE position.position = 'B' 
+            WHERE position.position = 'B'
             OR player_games_played.player_id = :playerid
-            UNION 
+            UNION
             select position.* from position where position='UT'"
             , ['playerid' => $playerid]);
     } else {
-        $positions = DB::select("select position.* 
-            from position 
+        $positions = DB::select("select position.*
+            from position
             where position='P' or position = 'B'");
     }
     return $positions;
@@ -303,19 +325,31 @@ $router->get('Positions/ByPlayer/{playerid}', function($playerid) {
 // Player routes
 $router->get('Players/AtPositionForTeam/{teamid}/{position}', function($teamid, $position) {
     $playerPosition = DB::select("
-        select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary, 
+        select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary,
         map.cbsid cbs_id, replace(trim(TRAILING ' Jr.' FROM player.name), ' ', '-') fangraphs_name,
-        roster.eligible_positions
+        player.eligible_positions
         from roster
         join player on roster.player_id = player.player_id
         JOIN player_id_map map ON player.fangraphs_id = map.idfangraphs
         where roster.team_id = :teamid
+        and roster.active = 1
         and roster.position = :position;", ['teamid' => $teamid, 'position' => $position]);
+    return $playerPosition;
+});
+$router->get('Players/GetTransactions/{playerid}', function($playerid) {
+    $playerPosition = DB::select("
+        select player.name as player_name, player.player_id, team.id as team_id,
+        team.name as team_name, salary, roster.id, roster.active, roster.time_drafted
+        from roster
+        join player on roster.player_id = player.player_id
+        join team on roster.team_id = team.id
+        where roster.player_id = :playerid
+        order by time_drafted desc;", ['playerid' => $playerid]);
     return $playerPosition;
 });
 
 $router->get('Players/GetSalary/{playerid}', function($playerid) {
-    $salary = DB::table('roster')->where('player_id', $playerid)->pluck('salary');
+    $salary = DB::table('roster')->where('player_id', $playerid)->where('active', 1)->pluck('salary');
     return $salary;
 });
 
@@ -344,14 +378,14 @@ $router->get('Players/SearchByName/{searchTerm}', function($searchTerm) {
 
     if($firstName == $lastName)
     {
-        $players = DB::select("SELECT player_id, name, position, fangraphs_id
+        $players = DB::select("SELECT player_id, name, position, fangraphs_id, eligible_positions
                     FROM  player
                     WHERE  name like :lastName", ['lastName' => $lastName]);
     }
     else
     {
         $name = $firstName . " " . $lastName;
-        $players = DB::select("SELECT player_id, name, position, fangraphs_id
+        $players = DB::select("SELECT player_id, name, position, fangraphs_id, eligible_positions
                     FROM  player
                     WHERE  name like :name", ['name' => $name]);
     }
