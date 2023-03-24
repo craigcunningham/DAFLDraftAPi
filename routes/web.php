@@ -39,13 +39,18 @@ $router->get('/', function () use ($router) {
 //Player Routing
 $router->get('Players/HitterRankings/{year}/{system}', function($year, $system) {
     $players = DB::select("SELECT
-    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
-    hproj.adp, hproj.pa, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg,
+    p.player_id, hproj.fangraphs_id, p.name playerName,
+    (select IF(COUNT(*) = 0, 0, 1) from roster where roster.player_id = p.player_id and roster.active = 1) unavailable,
+    p.eligible_positions eligible, map.cbsid cbs_id,
+    val.Adjusted adjusted, val.Guess guess, roster.salary,
+    hproj.adp, hproj.ab, hproj.hr, hproj.r, hproj.rbi, hproj.sb, hproj.avg,
     replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
     FROM player p
-    LEFT OUTER JOIN hitter_projection hproj ON p.fangraphs_id = hproj.fangraphs_id
-    JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
+    JOIN player_id_map map ON p.cbs_id = map.cbsid
+    LEFT OUTER JOIN hitter_projections hproj ON map.idfangraphs = hproj.fangraphs_id
     LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
+    left outer join hitter_value val on val.fangraphs_id = hproj.fangraphs_id
+    left outer join roster on p.player_id = roster.player_id and roster.active
     WHERE hproj.adp < 700
     AND hproj.year = :year
     AND hproj.projection_system = :system
@@ -54,13 +59,17 @@ $router->get('Players/HitterRankings/{year}/{system}', function($year, $system) 
 });
 $router->get('Players/PitcherRankings/{year}/{system}', function($year, $system) {
     $players = DB::select("SELECT
-    p.player_id, p.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
-    pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.holds,
+    p.player_id, pproj.fangraphs_id, p.name playerName, ros.protect, ros.eligible, map.cbsid cbs_id,
+    (select IF(COUNT(*) = 0, 0, 1) from roster where roster.player_id = p.player_id and roster.active = 1) unavailable,
+    val.Adjusted adjusted, val.Guess guess, roster.salary,
+    pproj.adp, pproj.w, pproj.era, pproj.sv, pproj.ip, pproj.so, pproj.hld,
     replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
     FROM player p
-    LEFT OUTER JOIN pitcher_projection pproj ON p.fangraphs_id = pproj.fangraphs_id
-    JOIN player_id_map map ON p.fangraphs_id = map.idfangraphs
+    JOIN player_id_map map ON p.cbs_id = map.cbsid
+    LEFT OUTER JOIN pitcher_projections pproj ON map.idfangraphs = pproj.fangraphs_id
     LEFT OUTER JOIN rostersforupload ros ON map.cbsid = ros.cbs_id
+    left outer join roster on p.player_id = roster.player_id and roster.active
+    left outer join pitcher_value val on val.fangraphs_id = pproj.fangraphs_id
     WHERE pproj.adp < 700
     AND pproj.year = :year
     AND pproj.projection_system = :system
@@ -131,14 +140,16 @@ $router->get('Rosters/RosterCounts', function() {
 });
 
 $router->get('Rosters/RosterHitterProjections/{year}/{system}', function($year, $system) {
-    $rosterhitterprojections = DB::select("select proj.projection_system, team.name as teamName, team.id,
-    sum(proj.hr) as HR, sum(proj.rbi) as RBI, sum(proj.r) as Runs,
-    sum(pa) as PA, sum(proj.sb) as SB, avg(avg) as AVG
-    from roster
-    join team on roster.team_id = team.id
-    join hitter_projection proj on roster.player_id = proj.player_id
+    $rosterhitterprojections = DB::select("select team.name as name, team.id,
+    sum(proj.hr) as hr, sum(proj.rbi) as rbi, sum(proj.r) as runs,
+    sum(ab) as ab, sum(proj.sb) as sb, sum(h)/sum(AB) as avg
+	from hitter_projections proj
+	join player_id_map map on proj.fangraphs_id = map.idfangraphs
+	join player p on map.cbsid = p.cbs_id
+	join roster on p.player_id = roster.player_id and roster.active = 1
+	join team on team.id = roster.team_id
     where proj.projection_system = :system
-    and proj.year = :
+    and proj.year = :year
     and roster.active = 1
     group by proj.projection_system, team.name, team.id
     order by team.name;", ['system' => $system, 'year' => $year]);
@@ -146,13 +157,15 @@ $router->get('Rosters/RosterHitterProjections/{year}/{system}', function($year, 
 });
 
 $router->get('Rosters/RosterPitcherProjections/{year}/{system}', function($year, $system) {
-    $rosterpitcherprojections = DB::select("select proj.projection_system, team.name as teamName,
-    team.id, sum(proj.w) as Wins, sum(proj.sv) as Saves,
-    sum(proj.so) as SO, sum(ip) as IP, sum(er) as ER,
-    sum(er)/(sum(ip)/9) as ERA
-    from roster
-    join team on roster.team_id = team.id
-    join pitcher_projection proj on roster.player_id = proj.player_id
+    $rosterpitcherprojections = DB::select("select proj.projection_system, team.name as name,
+    team.id, sum(proj.w) as wins, sum(proj.sv) as saves, sum(proj.hld) as holds,
+    sum(proj.so) as so, sum(ip) as ip, sum(er) as er,
+    sum(er)/(sum(ip)/9) as era
+	from pitcher_projections proj
+	join player_id_map map on proj.fangraphs_id = map.idfangraphs
+	join player p on map.cbsid = p.cbs_id
+	join roster on p.player_id = roster.player_id and roster.active = 1
+	join team on team.id = roster.team_id
     where proj.projection_system = :system
     and proj.year = :year
     and roster.active = 1
@@ -256,7 +269,7 @@ $router->post('Rosters', function(\Illuminate\Http\Request $request) {
 $router->post('Rosters/MovePlayer', function(\Illuminate\Http\Request $request) {
     DB::table('roster')
     ->where('player_id', $request->json()->get('id'))
-    ->update(['position' => $request->json()->get('position')]);
+    ->update(['position' => trim($request->json()->get('position'))]);
 });
 
 $router->delete('Rosters/{id}', function($id) {
@@ -276,7 +289,7 @@ $router->get('ProtectionList/{teamid}', function($teamid) {
     map.CBSID as cbs_id
     from adp
     join player_id_map map on adp.fangraphs_id = map.idfangraphs
-    join player p on map.idfangraphs = p.fangraphs_id
+    join player p on map.cbsid = p.cbs_id
     join rostersforupload ros on ros.cbs_id = map.cbsid
     where ros.Team_id = :team
     order by ros.protect desc, adp.adp asc", ['team' => $teamid]);
@@ -303,34 +316,34 @@ $router->post('ProtectionList/RemovePlayer', function(\Illuminate\Http\Request $
 
 
 $router->get('Positions/ByPlayer/{playerid}', function($playerid) {
-    $position = DB::table('player')->where('player_id', $playerid)->pluck('position');
+    $positions = DB::table('player')->where('player_id', $playerid)->pluck('eligible_positions');
 
-    if($position[0] == "H") {
-        $positions = DB::select("SELECT position.*
-            FROM player_games_played
-            JOIN position on player_games_played.position = position.position
-            WHERE position.position = 'B'
-            OR player_games_played.player_id = :playerid
-            UNION
-            select position.* from position where position='UT'"
-            , ['playerid' => $playerid]);
-    } else {
-        $positions = DB::select("select position.*
-            from position
-            where position='P' or position = 'B'");
-    }
+    // if($position[0] == "H") {
+    //     $positions = DB::select("SELECT position.*
+    //         FROM player_games_played
+    //         JOIN position on player_games_played.position = position.position
+    //         WHERE position.position = 'B'
+    //         OR player_games_played.player_id = :playerid
+    //         UNION
+    //         select position.* from position where position='UT'"
+    //         , ['playerid' => $playerid]);
+    // } else {
+    //     $positions = DB::select("select position.*
+    //         from position
+    //         where position='P' or position = 'B'");
+    // }
     return $positions;
 });
 
 // Player routes
 $router->get('Players/AtPositionForTeam/{teamid}/{position}', function($teamid, $position) {
     $playerPosition = DB::select("
-        select player.name, player.player_id as id, player.fangraphs_id as fangraphsId, salary,
+        select player.name, player.player_id as id, map.idfangraphs as fangraphsId, salary,
         map.cbsid cbs_id, replace(trim(TRAILING ' Jr.' FROM player.name), ' ', '-') fangraphs_name,
         player.eligible_positions
         from roster
         join player on roster.player_id = player.player_id
-        JOIN player_id_map map ON player.fangraphs_id = map.idfangraphs
+        JOIN player_id_map map ON player.cbs_id = map.CBSID
         where roster.team_id = :teamid
         and roster.active = 1
         and roster.position = :position;", ['teamid' => $teamid, 'position' => $position]);
