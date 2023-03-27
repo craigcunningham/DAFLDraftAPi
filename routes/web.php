@@ -76,6 +76,19 @@ $router->get('Players/PitcherRankings/{year}/{system}', function($year, $system)
     ORDER BY pproj.adp ASC", ['year' => $year, 'system' => $system]);
     return $players;
 });
+$router->get('Players/ByAdp', function() {
+    $players = DB::select("SELECT
+    p.player_id, adp.fangraphs_id, p.name playerName, p.eligible_positions, map.cbsid cbs_id, adp.adp,
+    (select IF(COUNT(*) = 0, 0, 1) from roster where roster.player_id = p.player_id and roster.active = 1) unavailable,
+    replace(trim(TRAILING ' Jr.' FROM p.name), ' ', '-') fangraphs_name
+    FROM player p
+    JOIN player_id_map map ON p.cbs_id = map.cbsid
+    left outer join roster on p.player_id = roster.player_id and roster.active
+    left outer join adp on map.idfangraphs = adp.fangraphs_id
+    WHERE adp.adp < 1000
+    ORDER BY adp.adp ASC");
+    return $players;
+});
 
 //USer Routing
 $router->get('User/{password}', function($password) {
@@ -116,6 +129,35 @@ $router->delete('Teams/{id}', function($id) {
 });
 
 //Rosters Routing
+$router->get('Rosters/GetHitterMatrix', function() {
+    $matrix = DB::select("select team.shortname as name,
+    GetPlayerAtPositionForTeam(team.id, 'C') as 'catcher',
+    GetPlayerAtPositionForTeam(team.id, '1B') as 'first',
+    GetPlayerAtPositionForTeam(team.id, '2B') as 'second',
+    GetPlayerAtPositionForTeam(team.id, '3B') as 'third',
+    GetPlayerAtPositionForTeam(team.id, 'SS') as 'shortstop',
+    GetPlayersAtPositionForTeam(team.id, 'OF', 1) as 'of1',
+    GetPlayersAtPositionForTeam(team.id, 'OF', 2) as 'of2',
+    GetPlayersAtPositionForTeam(team.id, 'OF', 3) as 'of3',
+    GetPlayerAtPositionForTeam(team.id, 'UT') as 'ut'
+    from team
+    where team.id in (1,2,3,4,7,8,9,10,11,12,13,14,15,16,17,18);");
+    return $matrix;
+});
+$router->get('Rosters/GetPitcherMatrix', function() {
+    $matrix = DB::select("select team.name,
+    GetPlayersAtPositionForTeam(team.id, 'P', 1) as 'p1',
+    GetPlayersAtPositionForTeam(team.id, 'P', 2) as 'p2',
+    GetPlayersAtPositionForTeam(team.id, 'P', 3) as 'p3',
+    GetPlayersAtPositionForTeam(team.id, 'P', 4) as 'p4',
+    GetPlayersAtPositionForTeam(team.id, 'P', 5) as 'p5',
+    GetPlayersAtPositionForTeam(team.id, 'P', 6) as 'p6',
+    GetPlayersAtPositionForTeam(team.id, 'P', 7) as 'p7',
+    GetPlayersAtPositionForTeam(team.id, 'P', 8) as 'p8'
+    from team
+    where team.id in (1,2,3,4,7,8,9,10,11,12,13,14,15,16,17,18);");
+    return $matrix;
+});
 
 $router->get('Rosters/RosterCounts', function() {
     $rostercounts = DB::select("select distinct team_id, team.shortname as teamName,
